@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Level Complete</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui;background:#0b1020;color:#fff}
+    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+    .card{
+      max-width:760px;width:100%;
+      background:rgba(15,18,30,.86);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      padding:22px;
+      text-align:center;
+      box-shadow:0 20px 80px rgba(0,0,0,.5)
+    }
+    img{width:140px;height:140px;border-radius:999px;object-fit:cover;border:2px solid rgba(255,255,255,.22)}
+    .row{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;margin:16px 0 8px}
+    .badge{font-size:70px;line-height:1}
+    button{
+      margin-top:14px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;border-radius:14px;
+      padding:12px 16px;font-weight:800;
+      cursor:pointer
+    }
+    p{opacity:.9;margin:10px 0 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Level 1 Passed! ✅</h1>
+      <div class="row">
+        <div class="badge">🐱</div>
+        <img id="pimg" alt="player"/>
+        <div class="badge">🏁</div>
+      </div>
+      <p>
+        Now Level 2 starts.<br/>
+        Collect as many cats as you can to build your <b>prize budget</b> — but avoid the dogs!
+      </p>
+
+      <button id="go2">Start Level 2</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getPlayer, playerImg, go } from "./common.js";
+    const name = getPlayer() || "Abia";
+    document.getElementById("pimg").src = playerImg(name);
+    document.getElementById("go2").onclick = () => go("level2_falling.html");
+  </script>
+</body>
+</html>

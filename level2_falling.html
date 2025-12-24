@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <title>Level 2 — Prize Budget</title>
+  <style>
+    html,body{
+      height:100%;margin:0;font-family:system-ui;background:#0b1020;color:#fff;
+      overflow:hidden;touch-action:none;
+    }
+    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+    canvas{
+      background:linear-gradient(#14214a,#0b1020);
+      border-radius:16px;
+      box-shadow:0 20px 60px rgba(0,0,0,.4);
+      max-width:100%;
+      height:auto;
+      touch-action:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="c" width="420" height="640"></canvas>
+  </div>
+
+  <script type="module">
+    import { getPlayer, playerImg, go } from "./common.js";
+
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+
+    const playerName = getPlayer() || "Abia";
+    const imgPlayer = new Image(); imgPlayer.src = playerImg(playerName);
+    const imgCat = new Image(); imgCat.src = "character/cat.jpg";
+    const imgDog = new Image(); imgDog.src = "dog/dog.png";
+
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+    // ===== Game tuning =====
+    const MAX_BUDGET = 5000;
+    const TARGET_BUDGET = 1000;
+    const START_LIVES = 3;
+
+    const CAT_POINTS = 10; // each cat adds 100 budget (5000 => 50 cats)
+    const DOG_PENALTY = 0;  // keep 0 (dogs just remove lives). Change if you want.
+
+    let score = 0;
+    let lives = START_LIVES;
+    let gameOver = false;
+    let endText = "";
+
+    // Catcher
+    const catcher = { x: W/2-35, y: H-110, r: 35 };
+    const items = [];
+
+    // ===== Input =====
+    let dragging = false;
+    let targetX = catcher.x;
+    const keys = new Set();
+
+    window.addEventListener("keydown", (e)=>{
+      const k = e.key.toLowerCase();
+      if(["arrowleft","arrowright","a","d"].includes(k)) e.preventDefault();
+      keys.add(k);
+    }, {passive:false});
+    window.addEventListener("keyup",(e)=>keys.delete(e.key.toLowerCase()));
+
+    function clientXToGameX(clientX){
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      return (clientX - rect.left) * scaleX - catcher.r;
+    }
+    function setTargetFromClientX(clientX){
+      targetX = clamp(clientXToGameX(clientX), 0, W - catcher.r*2);
+    }
+
+    canvas.addEventListener("pointerdown",(e)=>{
+      dragging = true;
+      canvas.setPointerCapture(e.pointerId);
+      setTargetFromClientX(e.clientX);
+      e.preventDefault();
+    }, {passive:false});
+
+    canvas.addEventListener("pointermove",(e)=>{
+      if(!dragging) return;
+      setTargetFromClientX(e.clientX);
+      e.preventDefault();
+    }, {passive:false});
+
+    canvas.addEventListener("pointerup",(e)=>{
+      dragging = false;
+      try{ canvas.releasePointerCapture(e.pointerId); }catch{}
+      e.preventDefault();
+    }, {passive:false});
+
+    canvas.addEventListener("pointercancel",()=>{ dragging=false; });
+
+    canvas.addEventListener("click",(e)=>{
+      setTargetFromClientX(e.clientX);
+    });
+
+    // ===== Helpers =====
+    function circleHit(a, b){
+      const ax=a.x+a.r, ay=a.y+a.r;
+      const bx=b.x+b.r, by=b.y+b.r;
+      const dx=ax-bx, dy=ay-by;
+      return Math.hypot(dx,dy) < (a.r+b.r) - 10;
+    }
+
+    function drawEntity(img, x, y, r, fallback){
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x+r, y+r, r, 0, Math.PI*2);
+      ctx.clip();
+      if(img && img.complete && img.naturalWidth>0){
+        ctx.drawImage(img, x, y, r*2, r*2);
+      } else {
+        ctx.fillStyle="rgba(255,255,255,0.18)";
+        ctx.fillRect(x,y,r*2,r*2);
+        ctx.fillStyle="rgba(255,255,255,0.9)";
+        ctx.font="28px system-ui";
+        ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(fallback, x+r, y+r);
+      }
+      ctx.restore();
+
+      ctx.strokeStyle="rgba(255,255,255,0.28)";
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(x+r,y+r,r,0,Math.PI*2);
+      ctx.stroke();
+    }
+
+    function endGame(){
+      gameOver = true;
+      localStorage.setItem("budgetEarned", String(score));
+
+      // Decide win/lose at the END
+      if(score < TARGET_BUDGET){
+        localStorage.setItem("specialMessage", `Budget earned: ${score}. Need at least ${TARGET_BUDGET}.`);
+        setTimeout(()=>go("loser.html"), 650);
+      } else {
+        localStorage.setItem("specialMessage", `Budget earned: ${score}!`);
+        setTimeout(()=>go("winner.html"), 650);
+      }
+    }
+
+    function spawn(){
+      // Spawns slowly ramp up as score grows (but still ends at MAX_BUDGET)
+      const base = 0.045;
+      const rate = base + Math.min(0.04, score/120000);
+
+      if(Math.random() < rate){
+        const isCat = Math.random() > 0.28; // more cats than dogs
+        items.push({
+          x: Math.random()*(W-70),
+          y: -90,
+          r: 35,
+          speed: 2.5 + Math.random()*3.2 + (score/2500),
+          type: isCat ? "CAT" : "DOG",
+          img: isCat ? imgCat : imgDog
+        });
+      }
+    }
+
+    // ===== Loop =====
+    function update(dt){
+      if(gameOver) return;
+
+      // Keyboard steering (backup)
+      const left = keys.has("arrowleft") || keys.has("a");
+      const right = keys.has("arrowright") || keys.has("d");
+      const kbSpeed = 380;
+      if(left && !right) targetX -= kbSpeed * dt;
+      if(right && !left) targetX += kbSpeed * dt;
+      targetX = clamp(targetX, 0, W - catcher.r*2);
+
+      // Smooth follow
+      catcher.x += (targetX - catcher.x) * Math.min(1, 18 * dt);
+
+      spawn();
+
+      for(let i=items.length-1;i>=0;i--){
+        const it = items[i];
+        it.y += it.speed;
+
+        if(circleHit({x:catcher.x,y:catcher.y,r:catcher.r}, it)){
+          if(it.type==="CAT"){
+            score = Math.min(MAX_BUDGET, score + CAT_POINTS);
+
+            // ✅ only finish when reaching MAX_BUDGET
+            if(score >= MAX_BUDGET){
+              endText = "Max budget reached! 🎉";
+              endGame();
+            }
+          } else {
+            lives -= 1;
+            score = Math.max(0, score - DOG_PENALTY);
+
+            if(lives <= 0){
+              endText = "Out of lives!";
+              endGame();
+            }
+          }
+
+          items.splice(i,1);
+          continue;
+        }
+
+        if(it.y > H+160) items.splice(i,1);
+      }
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+
+      // HUD
+      ctx.save();
+      ctx.fillStyle="rgba(255,255,255,0.92)";
+      ctx.font="900 18px system-ui";
+      ctx.fillText(`Level 2 — Prize Budget`, 16, 26);
+
+      ctx.font="700 16px system-ui";
+      ctx.fillText(`Budget: ${score} / ${MAX_BUDGET}`, 16, 50);
+
+      ctx.font="600 15px system-ui";
+      ctx.fillText(`Target to win: ${TARGET_BUDGET}`, 16, 72);
+
+      ctx.fillText(`Lives: ${"❤️".repeat(Math.max(0,lives))}`, 16, 94);
+
+      ctx.font="500 13px system-ui";
+      ctx.fillText(`Move: drag/tap • or ← → / A D`, 16, 114);
+      ctx.restore();
+
+      // Player
+      drawEntity(imgPlayer, catcher.x, catcher.y, catcher.r, "🙂");
+
+      // Falling items
+      for(const it of items){
+        drawEntity(it.img, it.x, it.y, it.r, it.type==="CAT" ? "🐱" : "🐶");
+      }
+
+      if(gameOver){
+        ctx.save();
+        ctx.fillStyle="rgba(0,0,0,0.55)";
+        ctx.fillRect(0,0,W,H);
+        ctx.fillStyle="rgba(255,255,255,0.95)";
+        ctx.font="900 26px system-ui";
+        ctx.textAlign="center";
+        ctx.fillText(endText || "Finished!", W/2, H/2 - 10);
+        ctx.font="700 18px system-ui";
+        ctx.fillText(`Budget earned: ${score}`, W/2, H/2 + 22);
+        ctx.restore();
+      }
+    }
+
+    let lastT = performance.now();
+    function frame(t){
+      const dt = Math.min(0.033, (t-lastT)/1000);
+      lastT = t;
+      update(dt);
+      draw();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

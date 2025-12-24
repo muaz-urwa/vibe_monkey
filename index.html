@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pick Your Player</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui;background:#0b1020;color:#fff}
+    .wrap{max-width:980px;margin:0 auto;padding:18px}
+    h1{margin:10px 0 6px}
+    p{margin:0 0 16px;opacity:.85}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+    button{
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:16px;
+      padding:14px;
+      color:#fff;
+      cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:10px;
+    }
+    img{width:92px;height:92px;border-radius:999px;object-fit:cover;border:2px solid rgba(255,255,255,.22)}
+    .note{margin-top:14px;font-size:14px;opacity:.8}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Choose a player</h1>
+    <p>Pick one to play. Two levels: Maze → Falling Cats.</p>
+    <div class="grid" id="grid"></div>
+    <div class="note">Tip: Put the images in <code>players/Name.png</code> exactly.</div>
+  </div>
+
+  <script type="module">
+    import { PLAYERS, setPlayer, playerImg, routeSpecialCases, go } from "./common.js";
+
+    const grid = document.getElementById("grid");
+
+    for (const name of PLAYERS){
+      const btn = document.createElement("button");
+      const img = document.createElement("img");
+      img.src = playerImg(name);
+      img.alt = name;
+      img.onerror = () => { img.style.display = "none"; };
+
+      const label = document.createElement("div");
+      label.textContent = name;
+      label.style.fontWeight = "700";
+
+      btn.appendChild(img);
+      btn.appendChild(label);
+
+      btn.addEventListener("click", () => {
+        setPlayer(name);
+        localStorage.removeItem("specialMessage");
+        if (routeSpecialCases(name)) return;
+        go("level1_maze.html");
+      });
+
+      grid.appendChild(btn);
+    }
+  </script>
+</body>
+</html>

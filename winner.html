@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Winner</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui;background:#0b1020;color:#fff}
+    .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+    .card{max-width:720px;width:100%;background:rgba(15,18,30,.86);border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;padding:22px;text-align:center;box-shadow:0 20px 80px rgba(0,0,0,.5)}
+    .row{display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap;margin:18px 0}
+    img{width:140px;height:140px;border-radius:999px;object-fit:cover;border:2px solid rgba(255,255,255,.22)}
+    .trophy{font-size:84px;line-height:1}
+    button{margin-top:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);
+      color:#fff;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer}
+    .msg{opacity:.9;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Winner! 🏆</h1>
+      <div class="msg" id="msg"></div>
+      <div class="row">
+        <div class="trophy">🏆</div>
+        <img id="pimg" alt="player"/>
+      </div>
+      <h2 style="margin:0">You have unlocked the prize hunt.</h2>
+      <div id="budget" style="margin-top:10px;opacity:.9;font-weight:700"></div>
+
+      <button id="play">Play again</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getPlayer, playerImg, go } from "./common.js";
+    const name = getPlayer() || "Player";
+    document.getElementById("pimg").src = playerImg(name);
+
+    const special = localStorage.getItem("specialMessage");
+    document.getElementById("msg").textContent = special ? special : name;
+
+    document.getElementById("play").onclick = () => go("index.html");
+
+    const budget = localStorage.getItem("budgetEarned");
+    if(budget){
+    document.getElementById("budget").textContent = `Budget earned: ${budget}`;
+    }
+
+  </script>
+</body>
+</html>

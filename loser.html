@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>You Lost</title>
+  <style>
+    html,body{
+      height:100%;
+      margin:0;
+      font-family:system-ui;
+      background:#0b1020;
+      color:#fff;
+    }
+    .wrap{
+      min-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+    }
+    .card{
+      width:100%;
+      max-width:520px;
+      background:rgba(15,18,30,.88);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      padding:16px;
+      text-align:center;
+      box-shadow:0 20px 80px rgba(0,0,0,.5);
+    }
+    h1{margin:6px 0 4px}
+    p{opacity:.9;margin:6px 0}
+    .budget{margin-top:6px;font-weight:800;font-size:16px;opacity:.95}
+    canvas{
+      width:100%;
+      height:auto;
+      max-height:55vh;
+      border-radius:14px;
+      margin:12px 0;
+      background:#000;
+      display:block;
+    }
+    .actions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    button{
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;
+      border-radius:14px;
+      padding:10px 14px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .note{margin-top:8px;font-size:13px;opacity:.75}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Oops! 😅</h1>
+      <p id="message">You lost this round.</p>
+
+      <canvas id="scene"></canvas>
+
+      <div id="budget" class="budget" style="display:none"></div>
+
+      <div class="actions" id="actions"></div>
+      <div class="note" id="note"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getPlayer, go } from "./common.js";
+
+    const player = getPlayer() || "Abia";
+    const msg = localStorage.getItem("specialMessage") || "You lost this round.";
+    document.getElementById("message").textContent = msg;
+
+    // Show budget ONLY if we came from level 2
+    const lastLevel = localStorage.getItem("lastLevel");
+    const budget = localStorage.getItem("budgetEarned");
+    if(lastLevel === "2" && budget){
+      const b = document.getElementById("budget");
+      b.style.display = "block";
+      b.textContent = `Budget earned: ${budget}`;
+    }
+
+    // ---------- CANVAS SETUP ----------
+    const canvas = document.getElementById("scene");
+    const ctx = canvas.getContext("2d");
+
+    // Logical design size (keeps positioning stable; CSS scales it down)
+    const DESIGN_W = 700;
+    const DESIGN_H = 700;
+    canvas.width = DESIGN_W;
+    canvas.height = DESIGN_H;
+
+    // Placement & size rules (as fractions of canvas)
+    const POS_X_FRAC = 0.48;
+    const POS_Y_FRAC = 0.34;
+    const SIZE_FRAC  = 0.48;
+
+    function playerRect(){
+      const w = DESIGN_W * SIZE_FRAC;
+      const h = DESIGN_H * SIZE_FRAC;
+      const x = DESIGN_W * POS_X_FRAC;
+      const y = DESIGN_H * POS_Y_FRAC;
+      return { x, y, w, h };
+    }
+
+    // ---------- LOAD IMAGES ----------
+    const bgA = new Image();
+    const bgB = new Image();
+    const playerImgA = new Image();
+    const playerImgB = new Image();
+
+    bgA.src = "loser/looser_a.png";
+    bgB.src = "loser/looser_b.png";
+
+    playerImgA.src = `players/${player}.png`;
+    playerImgB.src = `players/${player}_2.png`;
+
+    // Fallback if _2 does not exist
+    playerImgB.onerror = () => {
+      playerImgB.src = `players/${player}.png`;
+    };
+
+    // Helper: wait for image load (or fail)
+    function waitImg(img){
+      return new Promise((resolve)=>{
+        if(img.complete && img.naturalWidth > 0) return resolve(true);
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+      });
+    }
+
+    // Draw player with alpha + clip mask
+    function drawPlayerMasked(pimg){
+      const r = playerRect();
+
+      // Circle clip to hide any rectangle edges (works even without real alpha)
+      const cx = r.x + r.w/2;
+      const cy = r.y + r.h/2;
+      const rad = Math.min(r.w, r.h)/2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      // Explicit alpha-safe compositing
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = true;
+
+      ctx.drawImage(pimg, r.x, r.y, r.w, r.h);
+      ctx.restore();
+    }
+
+    let frame = 0;
+    const FRAME_MS = 500;
+    let lastSwitch = performance.now();
+
+    function draw(){
+      ctx.clearRect(0,0,DESIGN_W,DESIGN_H);
+
+      const bg = (frame % 2 === 0) ? bgA : bgB;
+      const pimg = (frame % 2 === 0) ? playerImgA : playerImgB;
+
+      if(bg.complete && bg.naturalWidth > 0){
+        ctx.drawImage(bg, 0, 0, DESIGN_W, DESIGN_H);
+      }
+
+      if(pimg.complete && pimg.naturalWidth > 0){
+        drawPlayerMasked(pimg);
+      }
+    }
+
+    function loop(now){
+      if(now - lastSwitch >= FRAME_MS){
+        frame++;
+        lastSwitch = now;
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Start loop only after both backgrounds are ready
+    (async ()=>{
+      await waitImg(bgA);
+      await waitImg(bgB);
+      // player images can load lazily; loop will draw when ready
+      requestAnimationFrame(loop);
+    })();
+
+    // ---------- BUTTONS ----------
+    const actions = document.getElementById("actions");
+    const note = document.getElementById("note");
+
+    if(player === "Udan"){
+      const pick = document.createElement("button");
+      pick.textContent = "Pick another player";
+      pick.onclick = () => go("index.html");
+      actions.appendChild(pick);
+      note.textContent = "Udan is too young to play this game.";
+    } else {
+      const retry = document.createElement("button");
+      retry.textContent = "Retry Level 1";
+      retry.onclick = () => go("level1_maze.html");
+
+      const pick = document.createElement("button");
+      pick.textContent = "Pick another player";
+      pick.onclick = () => go("index.html");
+
+      actions.appendChild(retry);
+      actions.appendChild(pick);
+    }
+  </script>
+</body>
+</html>
