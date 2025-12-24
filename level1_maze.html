@@ -50,6 +50,10 @@
     const imgDog = new Image(); imgDog.src = "character/dog.png";
     const imgMom = new Image(); imgMom.src = "character/mom.png";
 
+    imgCat.onload  = () => console.log("CAT OK", imgCat.src);
+    imgCat.onerror = () => console.error("CAT FAIL", imgCat.src);
+
+
     // ====== Tuning ======
     const GAME_TIME = 22;
     const R = 14;
@@ -60,8 +64,8 @@
     const DASH_DURATION = 0.12;
     const DASH_COOLDOWN = 1.45;
 
-    const MOM_SPEED = 140;      // chases player
-    const DOG_SPEED = 40;      // ✅ slower dog
+    const MOM_SPEED = 130;      // chases player
+    const DOG_SPEED = 30;      // ✅ slower dog
     const AI_RECALC = 0.18;
 
     const CAT_SPEED = 120;      // ✅ cat wandering speed
