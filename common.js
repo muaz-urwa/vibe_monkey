@@ -11,22 +11,27 @@ export function getPlayer(){
   return localStorage.getItem("selectedPlayer") || "";
 }
 
+/**
+ * Build asset URLs relative to this module (works on GitHub Pages subpaths).
+ */
 export function playerImg(name){
-  return `players/${name}.png`;
+  return new URL(`players/${name}.png`, import.meta.url).toString();
 }
 
-export function go(url){
-  window.location.href = url;
+/**
+ * GitHub Pages-safe navigation.
+ * Always resolves relative to the CURRENT page URL (preserves /REPO_NAME/).
+ */
+export function go(file){
+  window.location.assign(new URL(file, window.location.href).toString());
 }
 
 export function routeSpecialCases(name){
-  // Udan -> too young -> loser
   if (name === "Udan") {
     localStorage.setItem("specialMessage", "Too young to play 😴");
     go("loser.html");
     return true;
   }
-  // Mamu -> rules -> winner
   if (name === "Mamu") {
     localStorage.setItem("specialMessage", "Mamu Rules the World 👑");
     go("winner.html");
